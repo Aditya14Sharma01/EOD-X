@@ -1,0 +1,135 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+// Create the servo driver
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(); // Default I2C address 0x40
+
+#define SERVOMIN  150 // Minimum pulse length count
+#define SERVOMAX  600 // Maximum pulse length count
+
+// Motor definitions (same as before)
+#define EN_TL A3
+#define IN1_TL 11
+#define IN2_TL 10
+
+#define EN_TR A0
+#define IN1_TR 6
+#define IN2_TR 5
+
+#define EN_BR A1
+#define IN1_BR 3
+#define IN2_BR 4
+
+#define EN_BL A2
+#define IN1_BL 13
+#define IN2_BL 12
+
+int speedValue = 150;
+
+void setup() {
+  // Motors
+  pinMode(EN_TL, OUTPUT); pinMode(IN1_TL, OUTPUT); pinMode(IN2_TL, OUTPUT);
+  pinMode(EN_TR, OUTPUT); pinMode(IN1_TR, OUTPUT); pinMode(IN2_TR, OUTPUT);
+  pinMode(EN_BR, OUTPUT); pinMode(IN1_BR, OUTPUT); pinMode(IN2_BR, OUTPUT);
+  pinMode(EN_BL, OUTPUT); pinMode(IN1_BL, OUTPUT); pinMode(IN2_BL, OUTPUT);
+
+  // Serial for Bluetooth
+  Serial.begin(9600);
+
+  // Initialize the PCA9685
+  pwm.begin();
+  pwm.setPWMFreq(50); // Analog servos run at ~50 Hz
+
+  delay(10);
+}
+
+void loop() {
+  if (Serial.available()) {
+    char cmd = Serial.read();
+
+    switch (cmd) {
+      case 'F': moveForward(); break;
+      case 'B': moveBackward(); break;
+      case 'L': strafeLeft(); break;
+      case 'R': strafeRight(); break;
+      case 'X': rotateClockwise(); break;
+      case 'Y': rotateCounterClockwise(); break;
+      case 'S': stopMotors(); break;
+
+      // Servo commands example
+      case '1': moveArm(0, 90); break; // Servo 0 to 90°
+      case '2': moveArm(1, 45); break; // Servo 1 to 45°
+      case '3': moveArm(2, 120); break; // Servo 2 to 120°
+      case '4': moveArm(3, 60); break; // Servo 3 to 60°
+      case '5': moveArm(4, 90); break; // Servo 4 (second arm) to 90°
+      case '6': moveArm(5, 45); break;
+      case '7': moveArm(6, 120); break;
+      case '8': moveArm(7, 60); break;
+    }
+  }
+}
+
+// ---------------- MOTOR FUNCTIONS -----------------
+
+void setMotor(int en, int in1, int in2, int speed, bool forward) {
+  digitalWrite(in1, forward ? HIGH : LOW);
+  digitalWrite(in2, forward ? LOW : HIGH);
+  analogWrite(en, speed);
+}
+
+void moveForward() {
+  setMotor(EN_TL, IN1_TL, IN2_TL, speedValue, true);
+  setMotor(EN_TR, IN1_TR, IN2_TR, speedValue, true);
+  setMotor(EN_BR, IN1_BR, IN2_BR, speedValue, true);
+  setMotor(EN_BL, IN1_BL, IN2_BL, speedValue, true);
+}
+
+void moveBackward() {
+  setMotor(EN_TL, IN1_TL, IN2_TL, speedValue, false);
+  setMotor(EN_TR, IN1_TR, IN2_TR, speedValue, false);
+  setMotor(EN_BR, IN1_BR, IN2_BR, speedValue, false);
+  setMotor(EN_BL, IN1_BL, IN2_BL, speedValue, false);
+}
+
+void strafeLeft() {
+  setMotor(EN_TL, IN1_TL, IN2_TL, speedValue, false);
+  setMotor(EN_TR, IN1_TR, IN2_TR, speedValue, true);
+  setMotor(EN_BR, IN1_BR, IN2_BR, speedValue, false);
+  setMotor(EN_BL, IN1_BL, IN2_BL, speedValue, true);
+}
+
+void strafeRight() {
+  setMotor(EN_TL, IN1_TL, IN2_TL, speedValue, true);
+  setMotor(EN_TR, IN1_TR, IN2_TR, speedValue, false);
+  setMotor(EN_BR, IN1_BR, IN2_BR, speedValue, true);
+  setMotor(EN_BL, IN1_BL, IN2_BL, speedValue, false);
+}
+
+void rotateClockwise() {
+  setMotor(EN_TL, IN1_TL, IN2_TL, speedValue, true);
+  setMotor(EN_TR, IN1_TR, IN2_TR, speedValue, false);
+  setMotor(EN_BR, IN1_BR, IN2_BR, speedValue, true);
+  setMotor(EN_BL, IN1_BL, IN2_BL, speedValue, false);
+}
+
+void rotateCounterClockwise() {
+  setMotor(EN_TL, IN1_TL, IN2_TL, speedValue, false);
+  setMotor(EN_TR, IN1_TR, IN2_TR, speedValue, true);
+  setMotor(EN_BR, IN1_BR, IN2_BR, speedValue, false);
+  setMotor(EN_BL, IN1_BL, IN2_BL, speedValue, true);
+}
+
+void stopMotors() {
+  analogWrite(EN_TL, 0);
+  analogWrite(EN_TR, 0);
+  analogWrite(EN_BR, 0);
+  analogWrite(EN_BL, 0);
+}
+
+// ---------------- SERVO FUNCTIONS -----------------
+
+void moveArm(uint8_t servoNum, uint8_t angle) {
+  // Map angle (0–180) to PWM pulse (SERVOMIN–SERVOMAX)
+  uint16_t pulse = map(angle, 0, 180, SERVOMIN, SERVOMAX);
+  pwm.setPWM(servoNum, 0, pulse);
+}
